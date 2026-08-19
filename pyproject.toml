@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "sl-metro-predict"
+version = "0.1.0"
+description = "SL Metro Delay Prediction MLOps and Data Engineering Pipeline"
+authors = ["MichioD <michio@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pandas = "^2.2.0"
+requests = "^2.31.0"
+boto3 = "^1.34.0"
+psycopg2-binary = "^2.9.9"
+scikit-learn = "^1.4.0"
+mlflow = "^2.10.0"
+fastapi = "^0.110.0"
+uvicorn = "^0.27.0"
+dbt-postgres = "^1.7.0"
+feast = "^0.37.0"
+great-expectations = "^0.18.0"
+python-dotenv = "^1.0.1"
+protobuf = "^4.25.3"
+gtfs-realtime-bindings = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+ruff = "^0.2.0"
+black = "^24.1.0"
+mypy = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
