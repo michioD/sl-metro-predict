@@ -1,0 +1,47 @@
+name: Deploy to T480 Edge Node
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.T480_HOST }}
+          username: ${{ secrets.T480_USER }}
+          key: ${{ secrets.T480_SSH_KEY }}
+          script: |
+            # Create project directory if it doesn't exist
+            mkdir -p ~/sl-metro-predict
+            cd ~/sl-metro-predict
+            
+            # If it's a git repo, pull latest. Otherwise, initialize and pull.
+            if [ -d ".git" ]; then
+              git pull origin main
+            else
+              git init
+              git remote add origin https://github.com/${{ github.repository }}.git
+              git pull origin main
+            fi
+            
+            # Restart docker-compose services
+            docker-compose down
+            docker-compose up -d --build
+            
+            # Build and run the FastAPI container
+            docker build -t sl-metro-api .
+            
+            # Stop existing API container if running
+            docker stop sl-metro-api-container || true
+            docker rm sl-metro-api-container || true
+            
+            # Run the FastAPI app
+            docker run -d --name sl-metro-api-container -p 8000:8000 -v $(pwd)/models:/app/models sl-metro-api
