@@ -38,8 +38,12 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.T480_HOST }}
+          port: ${{ secrets.T480_PORT }}
           username: ${{ secrets.T480_USER }}
           key: ${{ secrets.T480_SSH_KEY }}
+          proxy_host: ${{ secrets.PROXY_HOST }}
+          proxy_username: ${{ secrets.PROXY_USER }}
+          proxy_key: ${{ secrets.PROXY_SSH_KEY }}
           source: "docker-compose.yml,config/init-dbs.sql"
           target: "~/sl-metro-predict"
 
@@ -47,8 +51,12 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.T480_HOST }}
+          port: ${{ secrets.T480_PORT }}
           username: ${{ secrets.T480_USER }}
           key: ${{ secrets.T480_SSH_KEY }}
+          proxy_host: ${{ secrets.PROXY_HOST }}
+          proxy_username: ${{ secrets.PROXY_USER }}
+          proxy_key: ${{ secrets.PROXY_SSH_KEY }}
           script: |
             # Log in to the Container Registry on the server
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
