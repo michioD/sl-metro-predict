@@ -23,9 +23,9 @@ Public transit data is notoriously difficult to model. It involves joining massi
 
 This repository is an ongoing portfolio project. To provide an honest assessment of the system's current maturity, the architecture components are explicitly graded:
 
-*   ✅ **Implemented**: Ingestion (Python), API Serving (FastAPI), Frontend Dashboard (React), Dockerization, Baseline Heuristic Model.
+*   ✅ **Implemented**: Ingestion (Python), API Serving (FastAPI), Frontend Dashboard (React - *Hosted separately*), Dockerization, Baseline Heuristic Model, CI/CD Pipelines (GitHub Actions -> GHCR -> T480).
 *   🟡 **Partially Implemented**: Advanced ML Models (STGCN, State Space drafted but not wired to inference), Medallion Storage (MinIO/Postgres scaffolded but lacking dbt transforms).
-*   🔵 **Planned**: Airflow Orchestration DAGs, Feast Feature Store, MLflow Model Registry, CI/CD pipelines.
+*   🔵 **Planned**: Airflow Orchestration DAGs, Feast Feature Store, MLflow Model Registry.
 
 ---
 
@@ -131,21 +131,33 @@ Initially, I planned to deploy the entire stack to a 1GB RAM Oracle Cloud (OCI) 
 **The Fix:** I pivoted to a hybrid edge-cloud architecture. 
 *   The heavy data-crunching (FastAPI, Docker, Data pipeline) runs on a local on-premise edge node (T480).
 *   The lightweight React dashboard (`michiod.site`) is hosted on the 1GB OCI cloud server.
-*   The two communicate securely via encrypted Cloudflare reverse tunnels, bypassing NAT port-forwarding issues.
+*   The two communicate securely via encrypted **Cloudflare Zero Trust Tunnels**, bypassing NAT port-forwarding issues and providing automatic HTTPS to satisfy browser Mixed Content policies.
+*   Deployment is automated via **GitHub Actions**, which builds the Docker image, pushes it to GitHub Container Registry (`ghcr.io`), and triggers the T480 (via an OCI proxy jump host) to pull the immutable image.
 
 ---
 
 ## 6. Getting Started
 
-1. Install dependencies via Poetry:
+1. Install dependencies via Poetry (or use standard virtual environment):
    ```bash
    poetry install
+   # or
+   python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
    ```
-2. Run the baseline training pipeline (Joins GTFS RT to GTFS Static):
+2. Configure your API keys. Create a `.env` file in the root directory:
+   ```env
+   TRAFIKLAB_API_KEY="your_api_key_here"
+   ```
+3. Run the ingestion scripts to download the GTFS static timetables and real-time data to `data/bronze/`:
+   ```bash
+   python src/ingestion/gtfs_static_ingest.py
+   python src/ingestion/gtfs_realtime_ingest.py
+   ```
+4. Run the baseline training pipeline (Joins GTFS RT to GTFS Static to generate the model):
    ```bash
    python src/ml_pipeline/train_baseline.py
    ```
-3. Start the FastAPI inference server:
+5. Start the FastAPI inference server (or use Docker):
    ```bash
    uvicorn src.api.main:app --host 0.0.0.0 --port 8000
    ```

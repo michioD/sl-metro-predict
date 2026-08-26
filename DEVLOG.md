@@ -49,6 +49,22 @@ This log tracks the continuous progress, engineering decisions, and architectura
       * **State Space** formally isolates baseline congestion from daily cyclical rush-hour patterns. *Trade-off*: Computationally expensive for large dimensions, but highly interpretable.
       * **Survival Analysis** naturally models the "time until arrival" handling right-censored data (trains that haven't arrived yet). *Trade-off*: Requires reframing the target variable away from absolute delay seconds.
 
+## 2026-08-26: CI/CD Containerization & Zero Trust Networking
+
+* **GitHub Actions CI/CD (Container Replacement)**
+  * **Action**: Refactored the `deploy.yml` workflow to build the FastAPI Docker image on GitHub's servers, push it to GitHub Container Registry (`ghcr.io`), and then SSH into the T480 (via an OCI proxy jump host) to pull the immutable image and restart the container.
+  * **Design Decision & Trade-offs**: 
+    * *Why pull images instead of syncing code?* Previously, deployment relied on syncing raw files via SCP or `git pull` and building on the edge node. Building directly on GitHub Runners and pulling the compiled image ensures total environment parity, reduces compute overhead on the T480, and eliminates dependency compilation issues on the edge node.
+
+* **Cloudflare Zero Trust Reverse Tunnel**
+  * **Action**: Installed the `cloudflared` daemon natively on the T480 as a `systemd` service. Configured a `config.yml` reverse proxy to route traffic from a public custom subdomain (`metro.michiod.site`) directly into the `localhost:8000` Docker container port.
+  * **Design Decision & Trade-offs**: 
+    * *Why Cloudflare Tunnels instead of Nginx/Let's Encrypt?* The T480 sits behind a residential ISP connection with dynamic IP and NAT restrictions. A Cloudflare tunnel establishes a secure, outbound-only connection to Cloudflare's edge network, completely bypassing the need for port-forwarding on the router. It automatically handles HTTPS/SSL certificate generation, resolving the Mixed Content errors that occurred when the secure React dashboard attempted to fetch from a raw HTTP IP address.
+    * *Implementation Note (Headless Auth)*: Authenticating `cloudflared` on a headless Linux box requires generating the `cert.pem` on a local machine (Mac) via `cloudflared tunnel login` and securely `scp`ing it to the T480, as the browser callback to `localhost` fails without a GUI.
+
+* **DNS Management Migration**
+  * **Action**: Migrated authoritative DNS servers from Namecheap's BasicDNS to Cloudflare (`renan.ns.cloudflare.com`, `ziggy.ns.cloudflare.com`) to allow the `cloudflared` daemon to automatically manage CNAME routing.
+
 ## Discussion: Design Tradeoffs and Architecture Evaluation
 
 This section evaluates the overarching architectural decisions made throughout the project, explicitly detailing the strengths, weaknesses, and alternatives considered for each component.
