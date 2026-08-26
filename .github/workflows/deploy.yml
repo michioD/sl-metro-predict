@@ -6,11 +6,42 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert repository name to lowercase
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ env.REPO_LC }}-api:latest
+
+      - name: Copy docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.T480_HOST }}
+          username: ${{ secrets.T480_USER }}
+          key: ${{ secrets.T480_SSH_KEY }}
+          source: "docker-compose.yml,config/init-dbs.sql"
+          target: "~/sl-metro-predict"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -19,29 +50,27 @@ jobs:
           username: ${{ secrets.T480_USER }}
           key: ${{ secrets.T480_SSH_KEY }}
           script: |
-            # Create project directory if it doesn't exist
+            # Log in to the Container Registry on the server
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Navigate to project directory
             mkdir -p ~/sl-metro-predict
             cd ~/sl-metro-predict
             
-            # If it's a git repo, pull latest. Otherwise, initialize and pull.
-            if [ -d ".git" ]; then
-              git pull origin main
-            else
-              git init
-              git remote add origin https://github.com/${{ github.repository }}.git
-              git pull origin main
-            fi
+            # Restart docker-compose services (using the copied docker-compose.yml)
+            docker-compose up -d
             
-            # Restart docker-compose services
-            docker-compose down
-            docker-compose up -d --build
-            
-            # Build and run the FastAPI container
-            docker build -t sl-metro-api .
+            # Pull the newly built API image
+            docker pull ghcr.io/${{ env.REPO_LC }}-api:latest
             
             # Stop existing API container if running
             docker stop sl-metro-api-container || true
             docker rm sl-metro-api-container || true
             
-            # Run the FastAPI app
-            docker run -d --name sl-metro-api-container -p 8000:8000 -v $(pwd)/models:/app/models sl-metro-api
+            # Run the new FastAPI app container
+            # (Note: we still mount models if you are training locally, 
+            # or you can bake them into the image in the future)
+            docker run -d --name sl-metro-api-container \
+              -p 8000:8000 \
+              -v ~/sl-metro-predict/models:/app/models \
+              ghcr.io/${{ env.REPO_LC }}-api:latest
