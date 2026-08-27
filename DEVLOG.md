@@ -65,6 +65,15 @@ This log tracks the continuous progress, engineering decisions, and architectura
 * **DNS Management Migration**
   * **Action**: Migrated authoritative DNS servers from Namecheap's BasicDNS to Cloudflare (`renan.ns.cloudflare.com`, `ziggy.ns.cloudflare.com`) to allow the `cloudflared` daemon to automatically manage CNAME routing.
 
+* **T480 Homelab Operations & Uptime**
+  * **Action**: Configured the T480 to run continuously as a headless edge node. The `cloudflared` daemon is managed via `systemd` (`sudo systemctl enable cloudflared`), ensuring the reverse tunnel automatically re-establishes connectivity on system reboot or power failure. Docker daemon is similarly configured to restart containers automatically, ensuring high availability of the inference API without manual intervention.
+
+* **Debugging: Docker Volume Shadowing**
+  * **Action**: Resolved a critical "Model not loaded" API failure post-migration to GHCR.
+  * **Design Decision & Trade-offs**: 
+    * *The Bug:* The deployment script included a volume mount (`-v ~/sl-metro-predict/models:/app/models`). Because we stopped syncing raw code files to the T480 (favoring immutable images), the host directory was empty. Docker mounted this empty host directory over the container's internal `/app/models` directory, completely shadowing the `baseline_delay_model.pkl` that was successfully baked into the image during CI/CD. 
+    * *The Fix:* Removed the volume mount. Relying strictly on the immutable Docker image ensures that the exact model weights compiled in CI/CD are exactly what is served in production, completely eliminating host-state dependencies.
+
 ## Discussion: Design Tradeoffs and Architecture Evaluation
 
 This section evaluates the overarching architectural decisions made throughout the project, explicitly detailing the strengths, weaknesses, and alternatives considered for each component.

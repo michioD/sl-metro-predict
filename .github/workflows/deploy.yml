@@ -76,9 +76,7 @@ jobs:
             docker rm sl-metro-api-container || true
             
             # Run the new FastAPI app container
-            # (Note: we still mount models if you are training locally, 
-            # or you can bake them into the image in the future)
+            # The model is baked into the Docker image, so we do not mount an empty host volume.
             docker run -d --name sl-metro-api-container \
               -p 8000:8000 \
-              -v ~/sl-metro-predict/models:/app/models \
               ghcr.io/${{ env.REPO_LC }}-api:latest
