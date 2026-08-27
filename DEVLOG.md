@@ -74,6 +74,12 @@ This log tracks the continuous progress, engineering decisions, and architectura
     * *The Bug:* The deployment script included a volume mount (`-v ~/sl-metro-predict/models:/app/models`). Because we stopped syncing raw code files to the T480 (favoring immutable images), the host directory was empty. Docker mounted this empty host directory over the container's internal `/app/models` directory, completely shadowing the `baseline_delay_model.pkl` that was successfully baked into the image during CI/CD. 
     * *The Fix:* Removed the volume mount. Relying strictly on the immutable Docker image ensures that the exact model weights compiled in CI/CD are exactly what is served in production, completely eliminating host-state dependencies.
 
+* **Data Edge Case: Nighttime Service Closure**
+  * **Action**: Investigated an issue where the React frontend reported "No live route data" despite the API being fully online.
+  * **Design Decision & Trade-offs**: 
+    * *The Issue:* At 3:00 AM, the GTFS Realtime feed successfully returned data, but the API returned only 700/800/900-series night buses. The Stockholm Metro network (Lines 10-19) physically shuts down at night, meaning no Realtime Protobuf data is emitted for the metro. Because the frontend dashboard is hardcoded to only map Metro lines, it correctly appeared empty.
+    * *Evaluation:* This highlights the importance of domain knowledge in data engineering. The pipeline was functioning perfectly, but the physical reality of the transit schedule dictated the data shape. Future iterations of the model must account for these scheduled zero-traffic periods (using `trips.txt` calendars) to differentiate between "API failure" and "Scheduled closure."
+
 ## Discussion: Design Tradeoffs and Architecture Evaluation
 
 This section evaluates the overarching architectural decisions made throughout the project, explicitly detailing the strengths, weaknesses, and alternatives considered for each component.
