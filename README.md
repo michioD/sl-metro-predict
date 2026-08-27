@@ -78,14 +78,33 @@ graph TD
         ModelTrain -->|Log Metrics| Registry
     end
 
-    %% Serving
-    subgraph Model Serving & Frontend
-        FastAPI[FastAPI Inference ✅]:::compute
-        Website[React Frontend Dashboard ✅]:::external
-        
-        Registry -.->|Load Model| FastAPI
-        FastAPI -->|Serve Predictions| Website
+    %% CI/CD
+    subgraph CICD [CI/CD Pipeline]
+        GHA[GitHub Actions]:::orchestration
+        GHCR[(GHCR Image Registry)]:::storage
     end
+
+    %% Serving Edge Node
+    subgraph EdgeNode [Edge Node T480 Homelab]
+        CF_Daemon[cloudflared Daemon]:::external
+        subgraph Docker [Docker]
+            FastAPI[FastAPI Inference API<br>GET /health<br>GET /status<br>POST /predict]:::compute
+        end
+        FastAPI <-->|localhost:8000| CF_Daemon
+    end
+
+    %% Public Cloud
+    subgraph PublicCloud [Public Cloud]
+        CF_Edge((Cloudflare Edge Network)):::exREternal
+        Website[React Frontend OCI Server michiod.site]:::external
+    end
+    
+    GitPush((Git Push to main)):::external -.->|Triggers| GHA
+    GHA -->|Build & Push| GHCR
+    GHCR -->|Deploy/Pull Image| Docker
+    
+    CF_Daemon <-->|Secure Reverse Tunnel| CF_Edge
+    Website -->|Fetch API via HTTPS| CF_Edge
 ```
 
 ### Key Engineering Decisions
